@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>다 물어봐 챗봇</title>
+  <!-- 기존 스타일 재사용 -->
+  <link rel="stylesheet" href="/static/css/chat.css">
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">
+      <h2>다 물어봐 챗봇</h2>
+    </div>
+
+    <div class="chat-box" id="chat-box" aria-live="polite" aria-atomic="false">
+      <!-- Bot Welcome Message -->
+      <div class="message bot-message">
+        <p>안녕하세요! 예약, 영업시간 등 궁금한 점을 물어보세요.</p>
+      </div>
+    </div>
+
+    <form class="chat-input" id="chat-form" autocomplete="off">
+      <textarea id="message-input" placeholder="메시지를 입력하세요" autocomplete="off" rows="1"></textarea>
+      <button type="submit" id="send-button" aria-label="전송">전송</button>
+    </form>
+  </div>
+
+  <script>
+    (function () {
+      const chatBox   = document.getElementById("chat-box");
+      const chatForm  = document.getElementById("chat-form");
+      const inputEl   = document.getElementById("message-input");
+      const sendBtn   = document.getElementById("send-button");
+      const messageInput = document.getElementById("message-input");
+      
+      // 고정 place_id (필요 시 서버에서 주입하거나 URL 파라미터로 치환 가능)
+      const PLACE_ID = "1690334952";
+
+      // 세션 초기화: 이후 요청에 쿠키 자동 포함
+      fetch("/chat/session", {
+        method: "POST",
+        credentials: "include"
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log("세션 생성 완료:", data);
+      })
+      .catch(err => {
+        console.warn("세션 생성 실패(무시 가능):", err);
+      });
+
+      chatForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const text = inputEl.value.trim();
+        if (!text) return;
+
+        // 사용자 메시지 출력
+        appendMessage(text, "user");
+        inputEl.value = "";
+
+        // 로딩 메시지 추가 & 입력 잠금
+        const loadingEl = appendMessage("입력 중...", "bot");
+        setDisabled(true);
+
+        try {
+          const res = await fetch("/api/v1/agent/query", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ place_id: PLACE_ID, query: text })
+          });
+
+          // 로딩 메시지 제거
+          if (loadingEl && chatBox.contains(loadingEl)) {
+            chatBox.removeChild(loadingEl);
+          }
+
+          if (!res.ok) {
+            let detail = "서버에서 오류가 발생했습니다.";
+            try {
+              const errJson = await res.json();
+              detail = errJson.detail || detail;
+            } catch(_) {}
+            throw new Error(detail);
+          }
+
+          const data = await res.json();
+          appendMessage(data.answer ?? "답변을 불러오지 못했습니다.", "bot");
+        } catch (err) {
+          if (loadingEl && chatBox.contains(loadingEl)) {
+            chatBox.removeChild(loadingEl);
+          }
+          appendMessage(`죄송합니다. 오류가 발생했습니다: ${err.message}`, "bot");
+        } finally {
+          setDisabled(false);
+        }
+      });
+
+      function setDisabled(disabled) {
+        inputEl.disabled = disabled;
+        sendBtn.disabled = disabled;
+      }
+
+      function appendMessage(text, type) {
+        const wrap = document.createElement("div");
+        wrap.classList.add("message", `${type}-message`);
+
+        const p = document.createElement("p");
+        p.textContent = text;
+        wrap.appendChild(p);
+
+        chatBox.appendChild(wrap);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return wrap;
+      }
+
+      // Enter 전송
+      inputEl.addEventListener("keyup", (e) => {
+        if (e.key === "Enter") {
+          chatForm.requestSubmit();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

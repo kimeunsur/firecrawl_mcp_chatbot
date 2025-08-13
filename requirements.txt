@@ -1,0 +1,11 @@
+jinja2
+aiohttp                                                                                                                                                                                                                              │
+fastapi                                                                                                                                                                                                                              │
+uvicorn                                                                                                                                                                                                                              │
+python-dotenv                                                                                                                                                                                                                        │
+pymongo                                                                                                                                                                                                                              │
+pydantic                                                                                                                                                                                                                             │
+langchain                                                                                                                                                                                                                            │
+langgraph                                                                                                                                                                                                                            │
+langchain_openai                                                                                                                                                                                                                     │
+langchain_core    
