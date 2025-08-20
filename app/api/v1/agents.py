@@ -12,10 +12,11 @@ def query_agent(
     사용자의 질문에 대해 LangGraph AI 에이전트가 답변을 생성합니다.
     """
     try:
-        # LangGraph 에이전트 실행
+        # LangGraph 에이전트 실행 시 category도 함께 전달
         answer = agent.run(
             place_id=request.place_id,
-            query=request.query
+            query=request.query,
+            category=request.category
         )
         return AgentQueryResponse(
             place_id=request.place_id,

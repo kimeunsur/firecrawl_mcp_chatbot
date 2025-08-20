@@ -28,8 +28,8 @@ class SyncPipeline:
 
         # 2. 모든 소스 페이지 크롤링
         urls = mobile_url_builder.generate_mobile_urls(place_id, category)
-        home_content = (await self.crawler.crawl(urls.get("home"))).get("content")
-        menu_content = (await self.crawler.crawl(urls.get("menu"))).get("content")
+        home_content = (await self.crawler.scrape_url(urls.get("home"))).get("content")
+        menu_content = (await self.crawler.scrape_url(urls.get("menu"))).get("content")
         # info 페이지는 home과 내용이 중복될 수 있으므로 home_content 재사용
         info_content = home_content 
 

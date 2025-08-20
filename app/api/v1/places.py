@@ -1,10 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from typing import Dict, Any
+
 from ...services.sync.sync_pipeline import SyncPipeline
 from ...services.url_processor import url_processor
 from ...db.repositories.place_repository import PlaceRepository
 from ...db.connection import get_database
 from ...schemas.place_schema import PlaceSyncRequest, PlaceSyncResponse, PlaceResponse
 from pymongo.database import Database
+from ...services.crawler.client import FirecrawlClient
+from firecrawl import FirecrawlApp
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # 의존성 주입: SyncPipeline
 def get_sync_pipeline(db: Database = Depends(get_database)) -> SyncPipeline:
@@ -18,10 +26,14 @@ def get_sync_pipeline(db: Database = Depends(get_database)) -> SyncPipeline:
         normalizer=DataNormalizer(),
         predictor=CongestionPredictor()
     )
+firecrawl = FirecrawlApp(api_key=os.getenv("FIRECRAWL_API_KEY"))
 
 # 의존성 주입: PlaceRepository
 def get_place_repository(db: Database = Depends(get_database)) -> PlaceRepository:
     return PlaceRepository(db)
+
+def get_firecrawl_client() -> FirecrawlClient:
+    return FirecrawlClient()
 
 router = APIRouter()
 
@@ -63,3 +75,22 @@ def get_place_by_id(
         place_data['_id'] = str(place_data['_id'])
         
     return place_data
+
+@router.post("/places/extract_data", response_model=Dict[str, Any])
+async def extract_data(
+    url: str = Query(..., description="URL to scrape data from"),
+    firecrawl_client: FirecrawlClient = Depends(get_firecrawl_client)
+):
+    """
+    Scrapes data from the given URL using Firecrawl and generates llms.txt.
+    """
+    try:
+        scraped_data = await firecrawl_client.scrape_url(url)
+        llms_txt_data = await firecrawl_client.generate_llms_txt(url)
+
+        if not scraped_data and not llms_txt_data:
+            raise HTTPException(status_code=404, detail="Could not scrape data or generate llms.txt from the URL.")
+
+        return {"scraped_data": scraped_data, "llms_txt": llms_txt_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
